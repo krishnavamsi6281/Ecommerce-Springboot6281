@@ -1,13 +1,9 @@
 package com.phegondev.Phegon.Eccormerce.service;
 
-
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.regions.Regions;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.StorageOptions;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -18,44 +14,39 @@ import java.io.InputStream;
 
 @Service
 @Slf4j
-public class AwsS3Service {
+public class GcsService {
 
-    private final String bucketName = "phegon-ecommerce";
+    private final String bucketName = "vamsi-bucket-6281";
 
-    @Value("${aws.s3.access}")
-    private String awsS3AccessKey;
-    @Value("${aws.s3.secrete}")
-    private String awsS3SecreteKey;
+    // The path to your service account key file
+    @Value("${gcp.credentials.file.path}")
+    private String gcpCredentialsFilePath;
 
-
-    public String saveImageToS3(MultipartFile photo){
+    public String saveImageToGcs(MultipartFile photo) {
         try {
-            String s3FileName = photo.getOriginalFilename();
-            //create aes credentials using the access and secrete key
-            BasicAWSCredentials awsCredentials = new BasicAWSCredentials(awsS3AccessKey, awsS3SecreteKey);
-
-            //create an s3 client with config credentials and region
-            AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
-                    .withCredentials(new AWSStaticCredentialsProvider(awsCredentials))
-                    .withRegion(Regions.US_EAST_2)
-                    .build();
-
-            //get input stream from photo
+            String gcsFileName = photo.getOriginalFilename();
             InputStream inputStream = photo.getInputStream();
 
-            //set metedata for the onject
-            ObjectMetadata metadata = new ObjectMetadata();
-            metadata.setContentType("image/jpeg");
+            // Initialize GCS client
+            Storage storage = StorageOptions.newBuilder()
+                    .setProjectId("harvesthub-443202")
+                    .build()
+                    .getService();
 
-            //create a put request to upload the image to s3
-            PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, s3FileName, inputStream, metadata);
-            s3Client.putObject(putObjectRequest);
+            // Set metadata
+            BlobId blobId = BlobId.of(bucketName, gcsFileName);
+            BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
+                    .setContentType("image/jpeg")
+                    .build();
 
-            return "https://" + bucketName + ".s3.us-east-2.amazonaws.com/" + s3FileName;
+            // Upload file
+            storage.create(blobInfo, inputStream);
 
-        }catch (IOException e){
+            return "https://storage.googleapis.com/" + vamsi-bucket-6281 + "/" + gcsFileName;
+
+        } catch (IOException e) {
             e.printStackTrace();
-            throw new RuntimeException("Unable to upload image to s3 bucket: " + e.getMessage());
+            throw new RuntimeException("Unable to upload image to GCS bucket: " + e.getMessage());
         }
     }
 }
